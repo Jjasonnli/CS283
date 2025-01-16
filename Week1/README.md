@@ -1,1 +1,0 @@
-starting my week1 assignment
