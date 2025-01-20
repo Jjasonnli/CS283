@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define BUFFER_SZ 50
 
@@ -11,9 +12,11 @@ int setup_buff(char *, char *, int);
 int count_words(char *, int, int);
 void reverse_string(char *, int);
 void print_words(char *, int, int);
+int replace_string(char *, int, char *, char *);
 
+// Implementation of setup_buff()
 int setup_buff(char *buff, char *user_str, int len) {
-    //Copy user_str to buff and removes extra whitespace
+    // Copy user_str to buff and removes extra whitespace
     char *src = user_str;
     char *dst = buff;
     int count = 0;
@@ -32,16 +35,17 @@ int setup_buff(char *buff, char *user_str, int len) {
         src++;
     }
 
-    if (*src) return -1;  //Input string is too long
+    if (*src) return -1;  // Input string is too long
 
     while (count < len) {
         *dst++ = '.';
         count++;
     }
 
-    return dst - buff;  //Return the length of the user string
+    return dst - buff;  // Return the length of the user string
 }
 
+// Implementation of print_buff()
 void print_buff(char *buff, int len) {
     printf("Buffer:  ");
     for (int i = 0; i < len; i++) {
@@ -50,10 +54,12 @@ void print_buff(char *buff, int len) {
     putchar('\n');
 }
 
+// Implementation of usage()
 void usage(char *exename) {
     printf("usage: %s [-h|c|r|w|x] \"string\" [other args]\n", exename);
 }
 
+// Implementation of count_words()
 int count_words(char *buff, int len, int str_len) {
     int count = 0;
     int in_word = 0;
@@ -72,6 +78,7 @@ int count_words(char *buff, int len, int str_len) {
     return count;
 }
 
+// Implementation of reverse_string()
 void reverse_string(char *buff, int str_len) {
     char *start = buff;
     char *end = buff + str_len - 1;
@@ -86,6 +93,7 @@ void reverse_string(char *buff, int str_len) {
     }
 }
 
+// Implementation of print_words()
 void print_words(char *buff, int len, int str_len) {
     printf("Word Print\n");
     printf("----------\n");
@@ -119,6 +127,82 @@ void print_words(char *buff, int len, int str_len) {
     }
 }
 
+// Implementation of replace_string()
+int replace_string(char *buff, int len, char *search, char *replace) {
+    char temp[BUFFER_SZ]; // Temporary buffer to construct the new string
+    char *buff_ptr = buff; // Pointer to traverse the main buffer
+    char *temp_ptr = temp; // Pointer to construct the temporary buffer
+    char *search_start = NULL; // Pointer to the start of the search string in the buffer
+    char *search_ptr, *replace_ptr; // Pointers for search and replace strings
+
+    // Locate the search string in the buffer
+    while (*buff_ptr != '\0' && buff_ptr < buff + len) {
+        search_ptr = search;
+        search_start = buff_ptr;
+
+        // Check if the search string matches at the current position
+        while (*buff_ptr == *search_ptr && *search_ptr != '\0' && buff_ptr < buff + len) {
+            buff_ptr++;
+            search_ptr++;
+        }
+
+        // If the search string is found, break
+        if (*search_ptr == '\0') {
+            break;
+        }
+
+        // Otherwise, reset and move to the next character
+        search_start = NULL;
+        buff_ptr++;
+    }
+
+    // If the search string is not found
+    if (search_start == NULL) {
+        printf("Word not found.\n");
+        return -1;
+    }
+
+    // Copy everything before the search string to temp
+    buff_ptr = buff;
+    while (buff_ptr < search_start && temp_ptr < temp + len) {
+        *temp_ptr++ = *buff_ptr++;
+    }
+
+    // Copy the replacement string to temp
+    replace_ptr = replace;
+    while (*replace_ptr != '\0' && temp_ptr < temp + len) {
+        *temp_ptr++ = *replace_ptr++;
+    }
+
+    // Skip the search string in the buffer
+    buff_ptr = search_start;
+    search_ptr = search;
+    while (*search_ptr != '\0' && buff_ptr < buff + len) {
+        buff_ptr++;
+        search_ptr++;
+    }
+
+    // Copy everything after the search string to temp
+    while (*buff_ptr != '\0' && temp_ptr < temp + len) {
+        *temp_ptr++ = *buff_ptr++;
+    }
+
+    
+    while (temp_ptr < temp + len) {
+        *temp_ptr++ = '.';
+    }
+
+    // Copy temp back to the original buffer
+    temp_ptr = temp;
+    buff_ptr = buff;
+    while (buff_ptr < buff + len) {
+        *buff_ptr++ = *temp_ptr++;
+    }
+
+    return 0;
+}
+
+
 int main(int argc, char *argv[]) {
     char *buff;
     char *input_string;
@@ -126,7 +210,7 @@ int main(int argc, char *argv[]) {
     int rc;
     int user_str_len;
 
-    // TODO #1: Why is this safe?
+    // TODO:  #1. WHY IS THIS SAFE, aka what if arv[1] does not exist?
     // Answer: The if statement ensures argc is >= 2, so argv[1] exists. 
     // The condition *argv[1] != '-' validates the first argument starts with '-'.
     if ((argc < 2) || (*argv[1] != '-')) {
@@ -142,8 +226,8 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
 
-    // TODO #2: Why this check?
-    // Answer: This ensures the user has provided a second argument, which is the required input string for processing.
+    // TODO:  #2 Document the purpose of the if statement below
+    // Answer: Makes the user provide a second argument, which is the required input string for processing.
     if (argc < 3) {
         usage(argv[0]);
         exit(1);
@@ -182,6 +266,19 @@ int main(int argc, char *argv[]) {
 
         case 'w':  // Print words
             print_words(buff, BUFFER_SZ, user_str_len);
+            break;
+
+        case 'x':  // Replace string
+            if (argc < 5) {
+                printf("Error: Insufficient arguments for -x option.\n");
+                usage(argv[0]);
+                free(buff);
+                exit(1);
+            }
+            rc = replace_string(buff, BUFFER_SZ, argv[3], argv[4]);
+            if (rc == 0) {
+                printf("Modified String: %s\n", buff);
+            }
             break;
 
         default:
