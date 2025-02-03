@@ -1,0 +1,18 @@
+Question1.
+Yes, externalizing get_student() improves reusability. It reduces redundancy.
+
+Question2.
+Returning with a pointer makes it so that the pointer will "reference" invalid memory.
+
+Question3.
+I think it works but it isn't the best implementation because you must free the memory or else it will lead to memory leaks,
+it also is a lot more complicated.
+
+Question4.
+a)  The file size reported by ls is determined by the highest byte written to the file. Since each student_t record is 64 bytes, the file grows based on the largest student ID added
+b)  Linux allocates storage in 4KB blocks. Until the first 4KB block is full, additional writes within that range do not allocate new disk space.
+c)  Logical file size (ls) → 6.4MB 
+    Actual disk usage (du) → 12KB 
+    This behavior is a result of sparse files, a feature in Linux file systems that optimizes storage usage when large files contain unallocated gaps.
+
+
