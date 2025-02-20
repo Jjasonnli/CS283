@@ -32,3 +32,22 @@ EOF
     [ "$status" -eq 0 ]
 }
 
+# Test `pwd` command
+@test "Check pwd output" {
+    run ./dsh <<EOF
+pwd
+EOF
+
+    [ "$status" -eq 0 ]
+}
+
+
+# Test running a command with multiple arguments
+@test "Run command with multiple arguments" {
+    run ./dsh <<EOF
+ls -l -a
+EOF
+
+    [ "$status" -eq 0 ]
+}
+
