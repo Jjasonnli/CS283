@@ -9,63 +9,127 @@
 #include "dshlib.h"
 
 /*
- * Implement your exec_local_cmd_loop function by building a loop that prompts the 
- * user for input.  Use the SH_PROMPT constant from dshlib.h and then
- * use fgets to accept user input.
- * 
- *      while(1){
- *        printf("%s", SH_PROMPT);
- *        if (fgets(cmd_buff, ARG_MAX, stdin) == NULL){
- *           printf("\n");
- *           break;
- *        }
- *        //remove the trailing \n from cmd_buff
- *        cmd_buff[strcspn(cmd_buff,"\n")] = '\0';
- * 
- *        //IMPLEMENT THE REST OF THE REQUIREMENTS
- *      }
- * 
- *   Also, use the constants in the dshlib.h in this code.  
- *      SH_CMD_MAX              maximum buffer size for user input
- *      EXIT_CMD                constant that terminates the dsh program
- *      SH_PROMPT               the shell prompt
- *      OK                      the command was parsed properly
- *      WARN_NO_CMDS            the user command was empty
- *      ERR_TOO_MANY_COMMANDS   too many pipes used
- *      ERR_MEMORY              dynamic memory management failure
- * 
- *   errors returned
- *      OK                     No error
- *      ERR_MEMORY             Dynamic memory management failure
- *      WARN_NO_CMDS           No commands parsed
- *      ERR_TOO_MANY_COMMANDS  too many pipes used
- *   
- *   console messages
- *      CMD_WARN_NO_CMD        print on WARN_NO_CMDS
- *      CMD_ERR_PIPE_LIMIT     print on ERR_TOO_MANY_COMMANDS
- *      CMD_ERR_EXECUTE        print on execution failure of external command
- * 
- *  Standard Library Functions You Might Want To Consider Using (assignment 1+)
- *      malloc(), free(), strlen(), fgets(), strcspn(), printf()
- * 
- *  Standard Library Functions You Might Want To Consider Using (assignment 2+)
- *      fork(), execvp(), exit(), chdir()
+ * Executes a single command from the parsed `cmd_buff_t` structure.
  */
-int exec_local_cmd_loop()
-{
-    char *cmd_buff;
-    int rc = 0;
+int exec_cmd(cmd_buff_t *cmd) {
+    pid_t pid = fork();
+    
+    if (pid < 0) {
+        perror("Fork failed");
+        return ERR_EXEC_CMD;
+    }
+    
+    if (pid == 0) {
+        // Child process: execute command
+        execvp(cmd->argv[0], cmd->argv);
+        perror("Execution failed"); // If execvp fails
+        exit(ERR_EXEC_CMD);
+    } else {
+        // Parent process: wait for child
+        int status;
+        waitpid(pid, &status, 0);
+        return WEXITSTATUS(status);
+    }
+}
+
+/*
+ * Implements the built-in `cd` command.
+ */
+int exec_cd(cmd_buff_t *cmd) {
+    if (cmd->argc == 1) {
+        return OK; // Do nothing if no directory is specified
+    }
+    
+    if (chdir(cmd->argv[1]) != 0) {
+        perror("cd failed");
+        return ERR_EXEC_CMD;
+    }
+    
+    return OK;
+}
+
+/*
+ * Parses the input string, handling spaces and quotes correctly.
+ */
+int parse_input(char *cmd_line, cmd_buff_t *cmd) {
+    char *token;
+    bool in_quotes = false;
+    int argc = 0;
+    
+    cmd->_cmd_buffer = strdup(cmd_line);
+    if (!cmd->_cmd_buffer) {
+        return ERR_MEMORY;
+    }
+    
+    char *ptr = cmd->_cmd_buffer;
+    while (*ptr) {
+        while (isspace(*ptr) && !in_quotes) ptr++; // Skip leading spaces
+        
+        if (*ptr == '\"') {
+            in_quotes = !in_quotes;
+            ptr++; // Skip quote
+        }
+        
+        if (*ptr == '\0') break;
+        
+        cmd->argv[argc++] = ptr;
+        
+        while (*ptr && (in_quotes || !isspace(*ptr))) {
+            if (*ptr == '\"') {
+                in_quotes = !in_quotes;
+                *ptr = '\0';
+            }
+            ptr++;
+        }
+        
+        if (*ptr) {
+            *ptr = '\0';
+            ptr++;
+        }
+        
+        if (argc >= CMD_ARGV_MAX - 1) {
+            return ERR_CMD_OR_ARGS_TOO_BIG;
+        }
+    }
+    
+    cmd->argv[argc] = NULL;
+    cmd->argc = argc;
+    
+    return argc > 0 ? OK : WARN_NO_CMDS;
+}
+
+/*
+ * Implements the main shell loop.
+ */
+int exec_local_cmd_loop() {
+    char input[SH_CMD_MAX];
     cmd_buff_t cmd;
-
-    // TODO IMPLEMENT MAIN LOOP
-
-    // TODO IMPLEMENT parsing input to cmd_buff_t *cmd_buff
-
-    // TODO IMPLEMENT if built-in command, execute builtin logic for exit, cd (extra credit: dragon)
-    // the cd command should chdir to the provided directory; if no directory is provided, do nothing
-
-    // TODO IMPLEMENT if not built-in command, fork/exec as an external command
-    // for example, if the user input is "ls -l", you would fork/exec the command "ls" with the arg "-l"
-
+    
+    while (1) {
+        printf("%s", SH_PROMPT);
+        
+        if (!fgets(input, sizeof(input), stdin)) {
+            printf("\n");
+            break;
+        }
+        
+        input[strcspn(input, "\n")] = '\0'; // Remove trailing newline
+        
+        if (parse_input(input, &cmd) == WARN_NO_CMDS) {
+            printf("%s", CMD_WARN_NO_CMD);
+            continue;
+        }
+        
+        if (strcmp(cmd.argv[0], EXIT_CMD) == 0) {
+            return OK_EXIT;
+        } else if (strcmp(cmd.argv[0], "cd") == 0) {
+            exec_cd(&cmd);
+        } else {
+            exec_cmd(&cmd);
+        }
+        
+        free(cmd._cmd_buffer);
+    }
+    
     return OK;
 }
